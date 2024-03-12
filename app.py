@@ -394,12 +394,10 @@ class ProductReview(Resource):
 def check_purchase(product_id):
     current_user_id = get_jwt_identity()
 
-    # Assuming 'orders' relationship is set up for the User model
     has_purchased = bool(
-        db.session.query(Order)
-        .filter(Order.customer_id == current_user_id)
-        .filter(Order.products.any(Product.id == product_id))
-        .first()
+        Order.query.filter_by(
+            customer_id=current_user_id, product_id=product_id, order_status="completed"
+        ).first()
     )
 
     return jsonify({"hasPurchased": has_purchased})
@@ -435,6 +433,22 @@ class FarmerProducts(Resource):
             )
 
         return make_response(jsonify(products_data))
+
+
+class RatingCounts(Resource):
+    def get(self, product_id):
+        rating_counts = (
+            db.session.query(Reviews.rating, db.func.count(Reviews.rating))
+            .filter(Reviews.product_id == product_id)
+            .group_by(Reviews.rating)
+            .all()
+        )
+
+        counts_dict = {rating: count for rating, count in rating_counts}
+        return jsonify(counts_dict)
+
+
+api.add_resource(RatingCounts, "/reviews/<int:product_id>/rating-counts")
 
 
 class AddProduct(Resource):
